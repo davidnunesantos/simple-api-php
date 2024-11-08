@@ -104,8 +104,8 @@ curl -X POST -H "Content-Type: application/json" -d '{"type":"transfer", "origin
 
 ## Notes
 
-- O arquivo `data.json` é utilizado para armazenar o estado das contas. Certifique-se de que o servidor PHP tenha permissão de leitura e escrita nesse arquivo.
-- O formato JSON é utilizado para a comunicação entre cliente e servidor. Certifique-se de enviar as requisições `POST` com o cabeçalho `Content-Type: application/json`.
+- The `data.json` file is used to store the state of the accounts. Make sure the PHP server has read and write permissions on this file.
+- JSON format is used for communication between client and server. Make sure to send `POST` requests with the `Content-Type: application/json` header.
 
 
 ## Installation and Execution
