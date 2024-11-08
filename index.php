@@ -2,77 +2,123 @@
 
 header('Content-Type: application/json');
 
-session_start();
+define('DATA_FILE', 'data.json');
 
-// Check and initialize accounts
-if (!isset($_SESSION['accounts'])) {
-    $_SESSION['accounts'] = [];
+/**
+ * Load account data from JSON file.
+ *
+ * @return array<int, array{balance: int, id: int}> The account data or an empty array if the file does not exist or data is invalid.
+ */
+function loadData(): array {
+    if (file_exists(DATA_FILE)) {
+        $data = file_get_contents(DATA_FILE);
+        return json_decode($data, true) ?: [];
+    }
+    return [];
 }
 
-// Reset state function
-function resetState() {
-    $_SESSION['accounts'] = [];
+/**
+ * Save account data to JSON file.
+ *
+ * @param array<int, array{balance: int, id: int}> $data The data to be saved. The file is overwritten.
+ *
+ * @return void
+ */
+function saveData(array $data): void {
+    file_put_contents(DATA_FILE, json_encode($data));
+}
+
+/**
+ * Reset the account data to an empty array.
+ *
+ * @return void
+ */
+function resetState(): void {
+    saveData([]);
     http_response_code(200);
-    echo json_encode(["status" => "OK"]);
+    echo "OK";
 }
 
-// Get account balance function
-function getBalance($accountId) {
-    if (isset($_SESSION['accounts'][$accountId])) {
+/**
+ * Get the balance of a specific account.
+ *
+ * This function retrieves the balance for a given account ID from the stored account data.
+ *
+ * @param int $accountId The ID of the account to retrieve the balance for.
+ *
+ * @return void
+ */
+function getBalance(int $accountId): void {
+    $accounts = loadData();
+
+    if (isset($accounts[$accountId])) {
         http_response_code(200);
-        echo json_encode($_SESSION['accounts'][$accountId]);
+        echo json_encode($accounts[$accountId]['balance']);
     } else {
         http_response_code(404);
         echo json_encode(0);
     }
 }
 
-// Deposit, withdraw and transfer function
-function processEvent($data) {
+/**
+ * Deposit, withdraw and transfer function.
+ *
+ * @param array{type: string, amount: int, origin?: int, destination?: int} $data The event data.
+ *
+ * @return void Outputs the new balance as a JSON response. If the account does not exist, outputs 0 and sets a 404 response code.
+ */
+function processEvent(array $data): void {
+    $accounts = loadData();
+
     if ($data['type'] === 'deposit') {
         $destination = $data['destination'];
         $amount = $data['amount'];
         
-        if (!isset($_SESSION['accounts'][$destination])) {
-            $_SESSION['accounts'][$destination] = ['id' => $destination, 'balance' => 0];
+        if (!isset($accounts[$destination])) {
+            $accounts[$destination] = ['id' => $destination, 'balance' => 0];
         }
 
-        $_SESSION['accounts'][$destination]['balance'] += $amount;
+        $accounts[$destination]['balance'] += $amount;
+        saveData($accounts);
+        
         http_response_code(201);
-        echo json_encode(["destination" => $_SESSION['accounts'][$destination]]);
+        echo json_encode(["destination" => $accounts[$destination]]);
     } elseif ($data['type'] === 'withdraw') {
         $origin = $data['origin'];
         $amount = $data['amount'];
 
-        if (!isset($_SESSION['accounts'][$origin]) || $_SESSION['accounts'][$origin]['balance'] < $amount) {
+        if (!isset($accounts[$origin]) || $accounts[$origin]['balance'] < $amount) {
             http_response_code(404);
             echo json_encode(0);
         } else {
-            $_SESSION['accounts'][$origin]['balance'] -= $amount;
+            $accounts[$origin]['balance'] -= $amount;
+            saveData($accounts);
+            
             http_response_code(201);
-            echo json_encode(["origin" => $_SESSION['accounts'][$origin]]);
+            echo json_encode(["origin" => $accounts[$origin]]);
         }
     } elseif ($data['type'] === 'transfer') {
         $origin = $data['origin'];
         $destination = $data['destination'];
         $amount = $data['amount'];
 
-        if (!isset($_SESSION['accounts'][$origin]) || $_SESSION['accounts'][$origin]['balance'] < $amount) {
+        if (!isset($accounts[$origin]) || $accounts[$origin]['balance'] < $amount) {
             http_response_code(404);
             echo json_encode(0);
         } else {
-            $_SESSION['accounts'][$origin]['balance'] -= $amount;
+            $accounts[$origin]['balance'] -= $amount;
 
-            if (!isset($_SESSION['accounts'][$destination])) {
-                $_SESSION['accounts'][$destination] = ['id' => $destination, 'balance' => 0];
+            if (!isset($accounts[$destination])) {
+                $accounts[$destination] = ['id' => $destination, 'balance' => 0];
             }
 
-            $_SESSION['accounts'][$destination]['balance'] += $amount;
-
+            $accounts[$destination]['balance'] += $amount;
+            saveData($accounts);
+            
             http_response_code(201);
             echo json_encode([
-                "origin" => $_SESSION['accounts'][$origin],
-                "destination" => $_SESSION['accounts'][$destination]
+                "origin" => $accounts[$origin],
+                "destination" => $accounts[$destination]
             ]);
         }
     }
